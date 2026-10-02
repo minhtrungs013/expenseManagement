@@ -87,7 +87,7 @@ export default function TransactionsScreen() {
               </Animated.View>
             )}
           </View>
-          <PressableScale onPress={() => setSheetOpen(true)} scaleTo={0.9} style={[styles.filterBtn, filterCount ? { backgroundColor: c.primary } : surface(c)]}>
+          <PressableScale onPress={() => setSheetOpen(true)} scaleTo={0.9} style={[styles.filterBtn, surface(c), filterCount > 0 && { backgroundColor: c.primary, boxShadow: 'none' }]}>
             <Ionicons name="options-outline" size={22} color={filterCount ? c.onPrimary : c.text} />
             {filterCount > 0 && (
               <Animated.View entering={ZoomIn} style={[styles.badge, { backgroundColor: c.expense, borderColor: c.bg }]}>

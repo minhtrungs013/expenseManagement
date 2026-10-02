@@ -256,6 +256,7 @@ function AmountBox({ color, onPress, children }: { color: string; onPress: () =>
 }
 
 const COLUMNS = 4;
+const TILE_SHADOW = '0px 2px 8px rgba(15, 23, 42, 0.05)';
 const GAP = 8;
 
 /** Fixed 4-column grid: tile width is computed from the measured width, so edges always line up. */
@@ -292,7 +293,7 @@ function CategoryTile({ cat, width, selected, onPress }: { cat: Category; width:
       style={[
         styles.catTile,
         { width, borderColor: selected ? cat.color : 'transparent', backgroundColor: selected ? cat.color + '1A' : c.card },
-        !selected && !c.dark && styles.tileShadow,
+        { boxShadow: selected || c.dark ? 'none' : TILE_SHADOW },
       ]}
     >
       <Animated.View style={iconStyle}>
@@ -312,6 +313,5 @@ const styles = StyleSheet.create({
   clear: { position: 'absolute', left: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
   catTile: { alignItems: 'center', gap: 6, paddingTop: 12, paddingBottom: 10, paddingHorizontal: 4, borderRadius: RADIUS.md, borderWidth: 1.5 },
-  tileShadow: { shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   swapRow: { alignItems: 'center', marginVertical: -2, zIndex: 1 },
 });

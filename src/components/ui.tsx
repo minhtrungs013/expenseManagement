@@ -28,18 +28,26 @@ export { Ionicons };
 
 export const RADIUS = { sm: 10, md: 14, lg: 20 };
 
-/** Soft shadow in light mode, hairline border in dark mode. */
+export const SHADOW = {
+  card: '0px 4px 12px rgba(15, 23, 42, 0.07)',
+  soft: '0px 2px 8px rgba(15, 23, 42, 0.05)',
+  raised: '0px 6px 16px rgba(15, 23, 42, 0.18)',
+  none: 'none',
+};
+
+/**
+ * Soft shadow in light mode, hairline border in dark mode.
+ * Both modes set exactly the same keys: when the theme flips, every property is overwritten
+ * rather than removed (Android kept stale borders/shadows from the previous mode otherwise).
+ * `boxShadow` follows borderRadius on Android and iOS, unlike `elevation`.
+ */
 export function surface(c: Palette): ViewStyle {
-  return c.dark
-    ? { backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.border }
-    : {
-        backgroundColor: c.card,
-        shadowColor: '#0F172A',
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 2,
-      };
+  return {
+    backgroundColor: c.card,
+    borderWidth: c.dark ? StyleSheet.hairlineWidth : 0,
+    borderColor: c.dark ? c.border : 'transparent',
+    boxShadow: c.dark ? SHADOW.none : SHADOW.card,
+  };
 }
 
 // ---------- Text ----------

@@ -31,7 +31,7 @@ export function TabBar({ state, descriptors, navigation }: TabBarProps) {
           backgroundColor: c.card,
           paddingBottom: Math.max(insets.bottom, 10),
           borderTopColor: c.border,
-          shadowOpacity: c.dark ? 0 : 0.08,
+          boxShadow: c.dark ? 'none' : '0px -4px 16px rgba(15, 23, 42, 0.08)',
         },
       ]}
     >
@@ -87,7 +87,7 @@ function AddButton() {
         haptic
         scaleTo={0.88}
         onPress={() => router.push('/transaction')}
-        style={[styles.fab, { backgroundColor: c.primary, shadowColor: c.primary, borderColor: c.card }]}
+        style={[styles.fab, { backgroundColor: c.primary, borderColor: c.card, boxShadow: `0px 6px 14px ${c.primary}59` }]}
       >
         <Ionicons name="add" size={30} color={c.onPrimary} />
       </PressableScale>
@@ -101,10 +101,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#0F172A',
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 12,
   },
   item: { flex: 1, alignItems: 'center', gap: 3 },
   iconWrap: { width: 56, height: 30, alignItems: 'center', justifyContent: 'center' },
@@ -118,9 +114,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 4,
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
   },
 });

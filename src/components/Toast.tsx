@@ -78,7 +78,7 @@ export function useToast() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center', zIndex: 1000, elevation: 1000 },
+  wrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center', zIndex: 1000 },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -87,11 +87,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 999,
     maxWidth: '100%',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    boxShadow: '0px 6px 16px rgba(0, 0, 0, 0.22)',
   },
   text: { fontSize: 14.5, fontWeight: '700', flexShrink: 1 },
 });
