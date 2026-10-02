@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { toISODate } from '@/domain/dates';
+import { DEMO_BUDGETS, DEMO_CATEGORY_NAMES, generateDemoYear, type DemoRefs } from '@/domain/demo';
 import type { Account, AccountType, Budget, Category, CategoryType, Money, Transaction, TransactionInput } from '@/domain/types';
 import { AppError, normalizeHex, normalizeTransaction, validateAmount, validateName } from '@/domain/validation';
 
@@ -367,6 +369,73 @@ export async function importBackup(db: SQLiteDatabase, data: unknown): Promise<v
       if (typeof value === 'string') await setSetting(txn, key, value);
     }
   });
+}
+
+/**
+ * Adds a year of realistic sample transactions (plus Vietcombank/Momo accounts and a few budgets)
+ * so the app can be tried with real-looking data. Existing data is kept. Returns how many were added.
+ */
+export async function seedDemoYear(db: SQLiteDatabase): Promise<number> {
+  let added = 0;
+  await atomic(db, async (txn) => {
+    const now = nowIso();
+    const ensureAccount = async (name: string, type: AccountType, initialBalance: Money) => {
+      const row = await txn.getFirstAsync<{ id: number }>('SELECT id FROM accounts WHERE name = ? AND is_active = 1', name);
+      if (row) return row.id;
+      const r = await txn.runAsync(
+        'INSERT INTO accounts (name, type, initial_balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+        name, type, initialBalance, now, now,
+      );
+      return r.lastInsertRowId;
+    };
+    const cashRow = await txn.getFirstAsync<{ id: number }>("SELECT id FROM accounts WHERE type = 'cash' AND is_active = 1 ORDER BY id");
+    const accountIds = {
+      cash: cashRow?.id ?? (await ensureAccount('Tiền mặt', 'cash', 1_000_000)),
+      bank: await ensureAccount('Vietcombank', 'bank', 20_000_000),
+      wallet: await ensureAccount('Momo', 'ewallet', 500_000),
+    };
+
+    const categories = await loadCategories(txn);
+    const find = (type: CategoryType, name: string) => {
+      const c = categories.find((x) => x.type === type && x.name === name && x.isActive);
+      if (!c) throw new AppError(`Không tìm thấy danh mục mặc định "${name}"`);
+      return c.id;
+    };
+    const mapIds = <K extends string>(type: CategoryType, names: Record<K, string>) =>
+      Object.fromEntries(Object.entries<string>(names).map(([k, n]) => [k, find(type, n)])) as Record<K, number>;
+    const refs: DemoRefs = {
+      accounts: accountIds,
+      expense: mapIds('expense', DEMO_CATEGORY_NAMES.expense),
+      income: mapIds('income', DEMO_CATEGORY_NAMES.income),
+    };
+
+    const accounts = await loadAccounts(txn);
+    const inputs = generateDemoYear(refs, toISODate(new Date()));
+    const stmt = await txn.prepareAsync(
+      `INSERT INTO transactions (type, amount, account_id, category_id, from_account_id, to_account_id, note, date, created_at, updated_at)
+       VALUES ($type, $amount, $accountId, $categoryId, $fromAccountId, $toAccountId, $note, $date, $now, $now)`,
+    );
+    try {
+      for (const input of inputs) {
+        const t = normalizeTransaction(input, { accounts, categories });
+        await stmt.executeAsync({
+          $type: t.type, $amount: t.amount, $accountId: t.accountId, $categoryId: t.categoryId,
+          $fromAccountId: t.fromAccountId, $toAccountId: t.toAccountId, $note: t.note, $date: t.date, $now: now,
+        });
+        added++;
+      }
+    } finally {
+      await stmt.finalizeAsync();
+    }
+
+    for (const b of DEMO_BUDGETS) {
+      await txn.runAsync(
+        'INSERT OR IGNORE INTO budgets (category_id, amount, created_at, updated_at) VALUES (?, ?, ?, ?)',
+        refs.expense[b.key], b.amount, now, now,
+      );
+    }
+  });
+  return added;
 }
 
 /** Deletes every record and restores the default categories and cash account. */

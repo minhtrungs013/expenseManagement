@@ -8,9 +8,10 @@ import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
 
 import { PressableScale } from '@/components/motion';
+import { confirmAction } from '@/components/confirm';
 import { useToast } from '@/components/Toast';
 import { Body, Card, Divider, IconBadge, Ionicons, Row, SectionHeader, Txt, type IconName } from '@/components/ui';
-import { exportBackup, importBackup, resetAllData } from '@/db/repo';
+import { exportBackup, importBackup, resetAllData, seedDemoYear } from '@/db/repo';
 import { seedDefaults } from '@/db/schema';
 import { today } from '@/domain/dates';
 import { AppError } from '@/domain/validation';
@@ -23,7 +24,7 @@ export default function SettingsScreen() {
   const { reloadTheme } = useTheme();
   const { mutate, transactions } = useData();
   const toast = useToast();
-  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const [busy, setBusy] = useState<'export' | 'import' | 'demo' | null>(null);
 
   const doExport = async () => {
     setBusy('export');
@@ -73,11 +74,31 @@ export default function SettingsScreen() {
     }
   };
 
+  const doDemo = () => {
+    confirmAction(
+      'Tạo dữ liệu mẫu 1 năm?',
+      'Thêm khoảng 1.300 giao dịch mẫu trong 12 tháng gần nhất (lương, tiền nhà, ăn uống, chuyển Momo…), tài khoản Vietcombank, Momo và vài ngân sách. Dữ liệu hiện có được giữ nguyên.',
+      'Tạo dữ liệu',
+      async () => {
+        setBusy('demo');
+        let n = 0;
+        const ok = await mutate(async (d) => {
+          n = await seedDemoYear(d);
+        });
+        setBusy(null);
+        if (ok) toast(`Đã thêm ${n.toLocaleString('vi-VN')} giao dịch mẫu`);
+      },
+    );
+  };
+
   const doReset = () => {
-    Alert.alert('Xoá toàn bộ dữ liệu?', `${transactions.length} giao dịch, mọi tài khoản, danh mục và ngân sách sẽ bị xoá vĩnh viễn. Hãy xuất bản sao lưu trước nếu cần.`, [
-      { text: 'Huỷ', style: 'cancel' },
-      { text: 'Xoá hết', style: 'destructive', onPress: () => mutate((d) => resetAllData(d, seedDefaults), 'Đã xoá toàn bộ dữ liệu') },
-    ]);
+    confirmAction(
+      'Xoá toàn bộ dữ liệu?',
+      `${transactions.length} giao dịch, mọi tài khoản, danh mục và ngân sách sẽ bị xoá vĩnh viễn. Hãy xuất bản sao lưu trước nếu cần.`,
+      'Xoá hết',
+      () => mutate((d) => resetAllData(d, seedDefaults), 'Đã xoá toàn bộ dữ liệu'),
+      true,
+    );
   };
 
   return (
@@ -102,6 +123,8 @@ export default function SettingsScreen() {
         <MenuItem icon="cloud-upload-outline" label="Xuất bản sao lưu (.json)" onPress={doExport} right={busy === 'export' ? <ActivityIndicator /> : undefined} />
         <Divider />
         <MenuItem icon="cloud-download-outline" label="Khôi phục từ bản sao lưu" onPress={doImport} right={busy === 'import' ? <ActivityIndicator /> : undefined} />
+        <Divider />
+        <MenuItem icon="flask-outline" label="Tạo dữ liệu mẫu 1 năm" onPress={doDemo} right={busy === 'demo' ? <ActivityIndicator /> : undefined} />
         <Divider />
         <MenuItem icon="trash-outline" label="Xoá toàn bộ dữ liệu" color={c.expense} onPress={doReset} />
       </Card>
