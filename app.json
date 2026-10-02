@@ -30,7 +30,20 @@
       "expo-sqlite",
       "expo-sharing",
       "@react-native-community/datetimepicker",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#F3F4F6",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#0B0D12"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

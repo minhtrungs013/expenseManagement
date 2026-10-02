@@ -1,28 +1,61 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider, type Theme } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View } from 'react-native';
 
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { ToastProvider } from '@/components/Toast';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/schema';
-import { DataProvider } from '@/state/DataProvider';
+import { DataProvider, useData } from '@/state/DataProvider';
 import { ThemeProvider, useColors } from '@/theme/ThemeProvider';
+
+// Keep the native splash up until our own loading screen has rendered (must run at module scope).
+SplashScreen.preventAutoHideAsync().catch(() => {});
+SplashScreen.setOptions({ duration: 250, fade: true });
 
 /** Forms slide up from the bottom on both platforms. */
 const MODAL = { presentation: 'modal', animation: 'slide_from_bottom' } as const;
 
 export default function RootLayout() {
+  const [ready, setReady] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const markReady = useCallback(() => setReady(true), []);
+  const hideLoader = useCallback(() => setShowLoader(false), []);
+
   return (
-    <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
-      <ThemeProvider>
-        <ToastProvider>
-          <DataProvider>
-            <Navigation />
-          </DataProvider>
-        </ToastProvider>
-      </ThemeProvider>
-    </SQLiteProvider>
+    <View style={{ flex: 1 }}>
+      <SQLiteProvider
+        databaseName={DATABASE_NAME}
+        onInit={migrateDbIfNeeded}
+        onError={(e) => {
+          console.warn(e);
+          setDbError('Không mở được dữ liệu. Hãy thử đóng và mở lại ứng dụng.');
+        }}
+      >
+        <ThemeProvider>
+          <ToastProvider>
+            <DataProvider>
+              <ReadySignal onReady={markReady} />
+              <Navigation />
+            </DataProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </SQLiteProvider>
+      {showLoader && <LoadingScreen ready={ready} error={dbError} onFinish={hideLoader} />}
+    </View>
   );
+}
+
+/** Tells the root layout when the database, theme and data snapshot are all loaded. */
+function ReadySignal({ onReady }: { onReady: () => void }) {
+  const { ready } = useData();
+  useEffect(() => {
+    if (ready) onReady();
+  }, [ready, onReady]);
+  return null;
 }
 
 function Navigation() {
