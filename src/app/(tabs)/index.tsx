@@ -66,7 +66,7 @@ export default function Dashboard() {
                 <Txt color={fg} style={{ opacity: 0.8, fontWeight: '600' }}>
                   Tổng số dư
                 </Txt>
-                <AnimatedMoney value={total} variant="display" color={fg} style={{ marginTop: 2 }} numberOfLines={1} adjustsFontSizeToFit />
+                <AnimatedMoney animate value={total} variant="display" color={fg} style={{ marginTop: 2 }} numberOfLines={1} adjustsFontSizeToFit />
                 <View style={[styles.heroStats, { backgroundColor: 'rgba(255,255,255,0.14)' }]}>
                   <HeroStat icon="arrow-down" label="Thu tháng này" value={summary.income} color={fg} />
                   <View style={[styles.heroDivider, { backgroundColor: fg }]} />
@@ -173,7 +173,7 @@ export default function Dashboard() {
                     {recent.map((tx, i) => (
                       <View key={tx.id}>
                         {i > 0 && <Divider inset={52} />}
-                        <TransactionRow tx={tx} onPress={() => router.push({ pathname: '/transaction', params: { id: tx.id } })} />
+                        <TransactionRow tx={tx} />
                       </View>
                     ))}
                   </Card>

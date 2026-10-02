@@ -14,7 +14,7 @@ import {
   type TextProps,
   type ViewStyle,
 } from 'react-native';
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { BudgetStatus } from '@/domain/calc';
@@ -217,7 +217,7 @@ export function Segmented<T extends string>({
   const x = useSharedValue(index * segW);
   const bg = useSharedValue(activeBg);
   useEffect(() => {
-    x.value = withSpring(index * segW, { damping: 18, stiffness: 220 });
+    x.value = withTiming(index * segW, { duration: 240, easing: Easing.out(Easing.cubic) });
     bg.value = withTiming(activeBg, { duration: 220 });
   }, [index, segW, activeBg, x, bg]);
   const indicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }], backgroundColor: bg.value }));
@@ -445,20 +445,29 @@ export function statusColor(c: Palette, status: BudgetStatus): string {
   return status === 'exceeded' ? c.expense : status === 'warning' ? c.warning : c.income;
 }
 
-/** Progress bar that animates from its previous value. */
-export function ProgressBar({ percent, status, height = 8 }: { percent: number; status: BudgetStatus; height?: number }) {
+/**
+ * Horizontal fill that grows from the left. Animates a transform (scaleX) rather than width,
+ * so each frame runs on the UI thread without re-running layout.
+ */
+export function FillBar({ percent, color, height = 8, trackColor }: { percent: number; color: string; height?: number; trackColor?: string }) {
   const c = useColors();
-  const target = Math.min(100, Math.max(0, percent));
-  const w = useSharedValue(0);
+  const target = Math.min(100, Math.max(0, percent)) / 100;
+  const scale = useSharedValue(0);
   useEffect(() => {
-    w.value = withTiming(target, { duration: 700, easing: Easing.out(Easing.cubic) });
-  }, [target, w]);
-  const fillStyle = useAnimatedStyle(() => ({ width: `${w.value}%` }));
+    scale.value = withTiming(target, { duration: 600, easing: Easing.out(Easing.cubic) });
+    return () => cancelAnimation(scale);
+  }, [target, scale]);
+  const fillStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: scale.value }] }));
   return (
-    <View style={[styles.progressTrack, { backgroundColor: c.cardAlt, height, borderRadius: height / 2 }]}>
-      <Animated.View style={[{ height: '100%', backgroundColor: statusColor(c, status), borderRadius: height / 2 }, fillStyle]} />
+    <View style={[styles.progressTrack, { backgroundColor: trackColor ?? c.cardAlt, height, borderRadius: height / 2 }]}>
+      <Animated.View style={[styles.fill, { backgroundColor: color, borderRadius: height / 2 }, fillStyle]} />
     </View>
   );
+}
+
+export function ProgressBar({ percent, status, height = 8 }: { percent: number; status: BudgetStatus; height?: number }) {
+  const c = useColors();
+  return <FillBar percent={percent} color={statusColor(c, status)} height={height} />;
 }
 
 export function statusLabel(status: BudgetStatus): string {
@@ -489,6 +498,8 @@ export function Skeleton({ height = 72, count = 3 }: { height?: number; count?: 
   const o = useSharedValue(0.5);
   useEffect(() => {
     o.value = withRepeat(withTiming(1, { duration: 700 }), -1, true);
+    // Infinite animations must be stopped explicitly, or they keep running after unmount.
+    return () => cancelAnimation(o);
   }, [o]);
   const style = useAnimatedStyle(() => ({ opacity: o.value }));
   return (
@@ -516,6 +527,7 @@ const styles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, marginBottom: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 10, borderRadius: RADIUS.md, marginBottom: 2 },
   progressTrack: { overflow: 'hidden' },
+  fill: { width: '100%', height: '100%', transformOrigin: 'left' },
   empty: { alignItems: 'center', gap: 8, paddingVertical: 32, paddingHorizontal: 24 },
   emptyHalo: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
 });

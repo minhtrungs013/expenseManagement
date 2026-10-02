@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColors } from '@/theme/ThemeProvider';
@@ -44,13 +44,18 @@ function ToastView({ toast, onDone }: { toast: ToastState; onDone: () => void })
 
   useEffect(() => {
     const hold = toast.kind === 'error' ? 2800 : 1500;
-    y.value = withSequence(withSpring(0, { damping: 16, stiffness: 220 }), withDelay(hold, withTiming(-80, { duration: 220 })));
+    y.value = withSequence(withTiming(0, { duration: 260, easing: Easing.out(Easing.cubic) }), withDelay(hold, withTiming(-80, { duration: 220 })));
     opacity.value = withSequence(
       withTiming(1, { duration: 160 }),
       withDelay(hold + 120, withTiming(0, { duration: 200 }, (finished) => {
         if (finished) runOnJS(onDone)();
       })),
     );
+    // A newer toast replaces this one: stop its timeline so it can't dismiss the new toast.
+    return () => {
+      cancelAnimation(y);
+      cancelAnimation(opacity);
+    };
   }, [toast.kind, y, opacity, onDone]);
 
   const style = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: y.value }] }));

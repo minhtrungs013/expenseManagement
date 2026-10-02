@@ -47,6 +47,7 @@ function Navigation() {
           contentStyle: { backgroundColor: c.bg },
           headerBackTitle: 'Quay lại',
           animation: 'slide_from_right',
+          freezeOnBlur: true,
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

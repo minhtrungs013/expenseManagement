@@ -1,11 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Platform, Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const SPRING = { damping: 15, stiffness: 320, mass: 0.6 };
+// Timing (not spring) for presses: no overshoot wobble, same feel on every device.
+const PRESS_IN = { duration: 90, easing: Easing.out(Easing.quad) };
+const PRESS_OUT = { duration: 160, easing: Easing.out(Easing.cubic) };
 
 /** Pressable that shrinks slightly while pressed — the base for every tappable surface. */
 export function PressableScale({
@@ -29,11 +31,11 @@ export function PressableScale({
       {...rest}
       disabled={disabled}
       onPressIn={(e) => {
-        scale.value = withSpring(scaleTo, SPRING);
+        scale.value = withTiming(scaleTo, PRESS_IN);
         rest.onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        scale.value = withSpring(1, SPRING);
+        scale.value = withTiming(1, PRESS_OUT);
         rest.onPressOut?.(e);
       }}
       onPress={(e) => {
@@ -47,36 +49,43 @@ export function PressableScale({
   );
 }
 
-/** Staggered entrance for stacked sections: pass the section's index. */
+/**
+ * Staggered entrance for stacked sections: pass the section's index.
+ * Plain timing (no spring) keeps it cheap and free of overshoot jitter.
+ */
 export function Appear({ index = 0, children, style }: { index?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 60).duration(380).springify().damping(18)} style={style}>
+    <Animated.View entering={FadeInDown.delay(Math.min(index, 5) * 40).duration(260)} style={style}>
       {children}
     </Animated.View>
   );
 }
 
-/** Animates a number from its previous value to the new one (used for balances). */
-export function useCountUp(target: number, duration = 650): number {
+const COUNT_FRAME_MS = 33; // ~30 updates/s is smooth for digits and halves the JS work vs 60 fps
+
+/**
+ * Animates a number from its previous value to the new one (used for the main balance).
+ * Each step re-renders only the component that calls this hook.
+ */
+export function useCountUp(target: number, duration = 450): number {
   const [value, setValue] = useState(target);
-  const from = useRef(target);
-  const raf = useRef<number | null>(null);
+  const current = useRef(target);
 
   useEffect(() => {
-    const start = from.current;
+    const start = current.current;
     if (start === target) return;
     const t0 = Date.now();
-    const step = () => {
+    const timer = setInterval(() => {
       const p = Math.min(1, (Date.now() - t0) / duration);
-      const eased = 1 - Math.pow(1 - p, 3);
-      const v = Math.round(start + (target - start) * eased);
+      const v = p >= 1 ? target : Math.round(start + (target - start) * (1 - Math.pow(1 - p, 3)));
+      current.current = v;
       setValue(v);
-      from.current = v;
-      if (p < 1) raf.current = requestAnimationFrame(step);
-    };
-    raf.current = requestAnimationFrame(step);
+      if (p >= 1) clearInterval(timer);
+    }, COUNT_FRAME_MS);
     return () => {
-      if (raf.current != null) cancelAnimationFrame(raf.current);
+      clearInterval(timer);
+      // If interrupted, jump to the final value so the next animation starts from the truth.
+      current.current = target;
     };
   }, [target, duration]);
 
@@ -89,6 +98,7 @@ export function useReveal(duration = 700, deps: unknown[] = []) {
   useEffect(() => {
     p.value = 0;
     p.value = withTiming(1, { duration });
+    return () => cancelAnimation(p);
   }, deps); // re-reveal only when the caller's data changes
   return p;
 }

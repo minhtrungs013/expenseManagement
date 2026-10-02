@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, FadeOut, LinearTransition, ZoomIn, ZoomOut } from 'react-native-reanimated';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
 
 import { accountTypeMeta, DateField, groupByDay, TransactionRow } from '@/components/finance';
 import { PressableScale } from '@/components/motion';
@@ -30,7 +30,7 @@ import { summarize } from '@/domain/calc';
 import { addMonths, currentMonthRange, formatDayHeader, monthRange, today, toISODate } from '@/domain/dates';
 import { activeFilterCount, applyFilter, EMPTY_FILTER, type SortOrder, type TxFilter } from '@/domain/filter';
 import { formatAmountInput, formatSigned, parseAmount } from '@/domain/money';
-import type { TxType } from '@/domain/types';
+import type { Transaction, TxType } from '@/domain/types';
 import { useData } from '@/state/DataProvider';
 import { useColors } from '@/theme/ThemeProvider';
 
@@ -56,6 +56,15 @@ export default function TransactionsScreen() {
   const totals = useMemo(() => summarize(filtered, { from: '0000-01-01', to: '9999-12-31' }), [filtered]);
   const filterCount = activeFilterCount(filter);
   const hasQuery = filterCount > 0 || filter.search.trim() !== '';
+
+  // Only the first screenful animates in. Rows mounted later (scrolling, searching) appear instantly —
+  // replaying entrance animations during scroll is what made long lists stutter.
+  const firstPaint = useRef(true);
+  useEffect(() => {
+    if (!ready) return;
+    const t = setTimeout(() => (firstPaint.current = false), 800);
+    return () => clearTimeout(t);
+  }, [ready]);
 
   return (
     <TabScreen title="Giao dịch">
@@ -111,35 +120,17 @@ export default function TransactionsScreen() {
           <Skeleton height={56} count={6} />
         </View>
       ) : (
-        <Animated.FlatList
+        <FlatList
           data={sections}
           keyExtractor={(s) => s.key}
-          itemLayoutAnimation={LinearTransition.springify().damping(18)}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 4 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          renderItem={({ item: section, index }) => (
-            <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 50).duration(300)} exiting={FadeOut.duration(150)}>
-              {section.title !== '' && (
-                <Row style={{ justifyContent: 'space-between', paddingTop: 14, paddingBottom: 8, paddingHorizontal: 4 }}>
-                  <Txt variant="label">{section.title}</Txt>
-                  {section.net != null && section.net !== 0 && (
-                    <Txt variant="small" style={{ fontWeight: '700' }} color={section.net > 0 ? c.income : c.textMuted}>
-                      {formatSigned(section.net)}
-                    </Txt>
-                  )}
-                </Row>
-              )}
-              <Card style={{ paddingVertical: 2, marginTop: section.title ? 0 : 8 }}>
-                {section.data.map((tx, i) => (
-                  <Animated.View key={tx.id} exiting={FadeOut.duration(150)} layout={LinearTransition}>
-                    {i > 0 && <Divider inset={52} />}
-                    <TransactionRow tx={tx} onPress={() => router.push({ pathname: '/transaction', params: { id: tx.id } })} />
-                  </Animated.View>
-                ))}
-              </Card>
-            </Animated.View>
-          )}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={9}
+          removeClippedSubviews={Platform.OS === 'android'}
+          renderItem={({ item, index }) => <DaySection section={item} animate={firstPaint.current && index < 6} index={index} />}
           ListEmptyComponent={
             hasQuery ? (
               <EmptyState icon="search-outline" title="Không tìm thấy" message="Không có giao dịch nào khớp với tìm kiếm hoặc bộ lọc." action="Xoá bộ lọc" onAction={() => setFilter(EMPTY_FILTER)} />
@@ -152,6 +143,56 @@ export default function TransactionsScreen() {
 
       <FilterSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} value={filter} onApply={setFilter} />
     </TabScreen>
+  );
+}
+
+interface DaySectionData {
+  key: string;
+  title: string;
+  net: number | null;
+  data: Transaction[];
+}
+
+/** One day's card. Memoized: unchanged days are skipped when the list re-renders (e.g. while typing a search). */
+const DaySection = memo(function DaySection({ section, animate, index }: { section: DaySectionData; animate: boolean; index: number }) {
+  const c = useColors();
+  const content = (
+    <>
+      {section.title !== '' && (
+        <Row style={styles.dayHeader}>
+          <Txt variant="label">{section.title}</Txt>
+          {section.net != null && section.net !== 0 && (
+            <Txt variant="small" style={{ fontWeight: '700' }} color={section.net > 0 ? c.income : c.textMuted}>
+              {formatSigned(section.net)}
+            </Txt>
+          )}
+        </Row>
+      )}
+      <Card style={{ paddingVertical: 2, marginTop: section.title ? 0 : 8 }}>
+        {section.data.map((tx, i) => (
+          <View key={tx.id}>
+            {i > 0 && <Divider inset={52} />}
+            <TransactionRow tx={tx} />
+          </View>
+        ))}
+      </Card>
+    </>
+  );
+  if (!animate) return <View>{content}</View>;
+  return <Animated.View entering={FadeInDown.delay(index * 40).duration(260)}>{content}</Animated.View>;
+}, sameSection);
+
+/** Sections are rebuilt on every filter change; compare by content (transactions are stable objects from the snapshot). */
+function sameSection(a: { section: DaySectionData; animate: boolean }, b: { section: DaySectionData; animate: boolean }) {
+  const x = a.section;
+  const y = b.section;
+  return (
+    a.animate === b.animate &&
+    x.key === y.key &&
+    x.title === y.title &&
+    x.net === y.net &&
+    x.data.length === y.data.length &&
+    x.data.every((tx, i) => tx === y.data[i])
   );
 }
 
@@ -284,6 +325,7 @@ function FilterSheet({ visible, onClose, value, onApply }: { visible: boolean; o
 }
 
 const styles = StyleSheet.create({
+  dayHeader: { justifyContent: 'space-between', paddingTop: 14, paddingBottom: 8, paddingHorizontal: 4 },
   search: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, borderRadius: 14, paddingHorizontal: 14 },
   searchInput: { flex: 1, height: 46, borderWidth: 0, paddingHorizontal: 0, backgroundColor: 'transparent' },
   filterBtn: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import type { Tabs } from 'expo-router/js-tabs';
 import { useEffect, type ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColors } from '@/theme/ThemeProvider';
@@ -56,7 +56,7 @@ function TabItem({ label, icons, focused, onPress }: { label: string; icons: [Ic
   const c = useColors();
   const p = useSharedValue(focused ? 1 : 0);
   useEffect(() => {
-    p.value = withSpring(focused ? 1 : 0, { damping: 14, stiffness: 260 });
+    p.value = withTiming(focused ? 1 : 0, { duration: 220, easing: Easing.out(Easing.cubic) });
   }, [focused, p]);
 
   const pillStyle = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ scaleX: 0.5 + p.value * 0.5 }] }));

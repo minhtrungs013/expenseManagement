@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { BarChart, DonutChart } from '@/components/charts';
 import { AnimatedMoney, MonthSwitcher } from '@/components/finance';
 import { Appear } from '@/components/motion';
-import { Body, Card, CategoryIcon, Divider, EmptyState, IconBadge, Row, SectionHeader, Segmented, Skeleton, surface, TabScreen, Txt } from '@/components/ui';
+import { Body, Card, CategoryIcon, Divider, EmptyState, FillBar, IconBadge, Row, SectionHeader, Segmented, Skeleton, surface, TabScreen, Txt } from '@/components/ui';
 import { expensesByCategory, summarize, trend, type Granularity } from '@/domain/calc';
 import { monthRange, today } from '@/domain/dates';
 import { formatCompact, formatMoney } from '@/domain/money';
@@ -153,23 +152,15 @@ function StatTile({ icon, label, value, color }: { icon: 'arrow-down' | 'arrow-u
   );
 }
 
-/** Thin bar showing a category's share of total spending; grows in on mount. */
+/** Thin bar showing a category's share of total spending. */
 function ShareBar({ percent, color }: { percent: number; color: string }) {
-  const c = useColors();
-  const w = useSharedValue(0);
-  useEffect(() => {
-    w.value = withTiming(percent, { duration: 700, easing: Easing.out(Easing.cubic) });
-  }, [percent, w]);
-  const style = useAnimatedStyle(() => ({ width: `${w.value}%` }));
   return (
-    <View style={[styles.shareTrack, { backgroundColor: c.cardAlt }]}>
-      <Animated.View style={[styles.shareFill, { backgroundColor: color }, style]} />
+    <View style={{ marginLeft: 40 }}>
+      <FillBar percent={percent} color={color} height={6} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   tile: { flex: 1, borderRadius: 20, padding: 14 },
-  shareTrack: { height: 6, borderRadius: 3, overflow: 'hidden', marginLeft: 40 },
-  shareFill: { height: '100%', borderRadius: 3 },
 });

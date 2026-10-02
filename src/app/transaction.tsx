@@ -1,7 +1,7 @@
 ﻿import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withSequence, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 
 import { accountTypeMeta, DateField } from '@/components/finance';
 import { PressableScale, tapHaptic } from '@/components/motion';
@@ -278,7 +278,7 @@ function CategoryTile({ cat, width, selected, onPress }: { cat: Category; width:
   const c = useColors();
   const pop = useSharedValue(1);
   useEffect(() => {
-    if (selected) pop.value = withSequence(withSpring(1.12, { damping: 8, stiffness: 400 }), withSpring(1, { damping: 12 }));
+    if (selected) pop.value = withSequence(withTiming(1.1, { duration: 110 }), withTiming(1, { duration: 160 }));
   }, [selected, pop]);
   const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
 

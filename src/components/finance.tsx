@@ -1,5 +1,6 @@
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { router } from 'expo-router';
+import { memo, useState } from 'react';
 import { Platform, StyleSheet, View, type TextProps } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -30,7 +31,12 @@ export function txSign(tx: Transaction): 1 | -1 | 0 {
   return tx.type === 'income' ? 1 : tx.type === 'expense' ? -1 : 0;
 }
 
-export function TransactionRow({ tx, onPress }: { tx: Transaction; onPress?: () => void }) {
+function openTransaction(id: number) {
+  router.push({ pathname: '/transaction', params: { id } });
+}
+
+/** One transaction line; tapping opens it for editing. Memoized so long lists only re-render changed rows. */
+export const TransactionRow = memo(function TransactionRow({ tx }: { tx: Transaction }) {
   const c = useColors();
   const { categoryById, accountById } = useData();
 
@@ -55,7 +61,7 @@ export function TransactionRow({ tx, onPress }: { tx: Transaction; onPress?: () 
   const amountColor = sign > 0 ? c.income : sign < 0 ? c.text : c.transfer;
 
   return (
-    <PressableScale onPress={onPress} scaleTo={0.98} style={styles.txRow}>
+    <PressableScale onPress={() => openTransaction(tx.id)} scaleTo={0.98} style={styles.txRow}>
       {icon}
       <View style={{ flex: 1 }}>
         <Txt numberOfLines={1} style={{ fontWeight: '600' }}>
@@ -70,7 +76,7 @@ export function TransactionRow({ tx, onPress }: { tx: Transaction; onPress?: () 
       </Txt>
     </PressableScale>
   );
-}
+});
 
 export function MonthSwitcher({ year, month, onChange }: { year: number; month: number; onChange: (y: number, m: number) => void }) {
   const go = (delta: number) => {
@@ -154,10 +160,21 @@ export function groupByDay(txs: Transaction[]): { date: ISODate; items: Transact
   return groups;
 }
 
-/** Money text that counts up/down to its new value. */
-export function AnimatedMoney({ value, signed, ...rest }: TextProps & { value: number; signed?: boolean; variant?: 'display' | 'title' | 'h2' | 'body'; color?: string }) {
+type MoneyTextProps = TextProps & { value: number; signed?: boolean; variant?: 'display' | 'title' | 'h2' | 'body'; color?: string };
+
+function CountingMoney({ value, signed, ...rest }: MoneyTextProps) {
   const v = useCountUp(value);
   return <Txt {...rest}>{signed ? formatSigned(v) : formatMoney(v)}</Txt>;
+}
+
+/**
+ * Money text. With `animate`, it counts to new values — reserve that for one headline number per
+ * screen; counting re-renders ~30×/s, so many of them at once makes the app stutter.
+ */
+export function AnimatedMoney({ animate = false, ...props }: MoneyTextProps & { animate?: boolean }) {
+  if (animate) return <CountingMoney {...props} />;
+  const { value, signed, ...rest } = props;
+  return <Txt {...rest}>{signed ? formatSigned(value) : formatMoney(value)}</Txt>;
 }
 
 const styles = StyleSheet.create({
