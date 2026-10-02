@@ -100,5 +100,11 @@ function render(size, { badge = true } = {}) {
 }
 
 const assets = path.join(__dirname, '..', 'assets');
-fs.writeFileSync(path.join(assets, 'splash-icon.png'), render(800));
-console.log('wrote assets/splash-icon.png');
+const outputs = [
+  ['splash-icon.png', 800], // native splash + in-app loading screen
+  ['favicon.png', 64], // web tab icon (64px stays sharp on 2× screens)
+];
+for (const [name, size] of outputs) {
+  fs.writeFileSync(path.join(assets, name), render(size));
+  console.log(`wrote assets/${name} (${size}×${size})`);
+}
